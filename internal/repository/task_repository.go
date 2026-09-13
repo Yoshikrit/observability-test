@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"gorm.io/gorm"
 
@@ -28,7 +29,10 @@ func NewTaskRepository(db *gorm.DB) TaskRepository {
 }
 
 func (r *taskRepository) Create(ctx context.Context, task *model.Task) error {
-	return r.db.WithContext(ctx).Create(task).Error
+	if err := r.db.WithContext(ctx).Create(task).Error; err != nil {
+		return fmt.Errorf("create task: %w", err)
+	}
+	return nil
 }
 
 func (r *taskRepository) GetByID(ctx context.Context, id uint) (*model.Task, error) {
@@ -37,7 +41,7 @@ func (r *taskRepository) GetByID(ctx context.Context, id uint) (*model.Task, err
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, ErrNotFound
 		}
-		return nil, err
+		return nil, fmt.Errorf("get task by id %d: %w", id, err)
 	}
 	return &task, nil
 }
@@ -45,19 +49,22 @@ func (r *taskRepository) GetByID(ctx context.Context, id uint) (*model.Task, err
 func (r *taskRepository) List(ctx context.Context) ([]model.Task, error) {
 	var tasks []model.Task
 	if err := r.db.WithContext(ctx).Order("id asc").Find(&tasks).Error; err != nil {
-		return nil, err
+		return nil, fmt.Errorf("list tasks: %w", err)
 	}
 	return tasks, nil
 }
 
 func (r *taskRepository) Update(ctx context.Context, task *model.Task) error {
-	return r.db.WithContext(ctx).Save(task).Error
+	if err := r.db.WithContext(ctx).Save(task).Error; err != nil {
+		return fmt.Errorf("update task %d: %w", task.ID, err)
+	}
+	return nil
 }
 
 func (r *taskRepository) Delete(ctx context.Context, id uint) error {
 	result := r.db.WithContext(ctx).Delete(&model.Task{}, id)
 	if result.Error != nil {
-		return result.Error
+		return fmt.Errorf("delete task %d: %w", id, result.Error)
 	}
 	if result.RowsAffected == 0 {
 		return ErrNotFound

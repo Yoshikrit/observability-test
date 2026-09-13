@@ -4,21 +4,40 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v3"
+	"github.com/gofiber/fiber/v3/middleware/healthcheck"
+	"go.opentelemetry.io/otel/trace"
 
 	"github.com/Yoshikrit/observability-test/internal/pkg/logger"
 )
 
-// Bodies larger than this are truncated before logging, as a guard against a
-// single oversized payload (e.g. an upload) blowing up one log line.
 const maxLoggedBodyBytes = 8 * 1024
 
-// RequestLogger logs one structured access log line per request, including
-// request/response bodies unconditionally. This is a deliberate trade-off for
-// this project (fake seed data, short Loki retention as a compensating
-// control) - don't carry unredacted body logging into a service handling
-// real user data without adding field-level redaction first.
-func RequestLogger() fiber.Handler {
+func AppLogger() fiber.Handler {
 	return func(c fiber.Ctx) error {
+		reqLogger := logger.AppLogger.With().
+			Str("request_id", c.GetRespHeader(fiber.HeaderXRequestID)).
+			Str("trace_id", trace.SpanContextFromContext(c.Context()).TraceID().String()).
+			Logger()
+
+		c.SetContext(logger.WithRequestLogger(c.Context(), reqLogger))
+
+		return c.Next()
+	}
+}
+
+// isHealthCheckPath excludes high-frequency orchestrator probes from the
+// access log - they'd otherwise fire every few seconds and drown out real
+// traffic without adding any diagnostic value.
+func isHealthCheckPath(path string) bool {
+	return path == healthcheck.LivenessEndpoint || path == healthcheck.ReadinessEndpoint
+}
+
+func AccessLogger() fiber.Handler {
+	return func(c fiber.Ctx) error {
+		if isHealthCheckPath(c.Path()) {
+			return c.Next()
+		}
+
 		start := time.Now()
 		reqBody := truncateBody(c.Body())
 
@@ -26,11 +45,6 @@ func RequestLogger() fiber.Handler {
 
 		event := logger.AccessLogger.Info()
 		if err != nil {
-			// The router only invokes the app's ErrorHandler (which actually
-			// writes the error response body) *after* this whole middleware
-			// chain returns - so at this point c.Response() is still empty.
-			// Invoke it ourselves so status/body are populated before we log,
-			// then swallow err so the router doesn't invoke it a second time.
 			if handleErr := c.App().ErrorHandler(c, err); handleErr != nil {
 				_ = c.SendStatus(fiber.StatusInternalServerError)
 			}
@@ -47,6 +61,7 @@ func RequestLogger() fiber.Handler {
 			Dur("duration_ms", end.Sub(start)).
 			Str("ip", c.IP()).
 			Str("request_id", c.GetRespHeader(fiber.HeaderXRequestID)).
+			Str("trace_id", trace.SpanContextFromContext(c.Context()).TraceID().String()).
 			Str("request_body", reqBody).
 			Str("response_body", truncateBody(c.Response().Body())).
 			Msg("request")

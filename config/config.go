@@ -12,6 +12,7 @@ type Config struct {
 	App      AppConfig
 	Database DatabaseConfig
 	Log      LogConfig
+	Tracing  TracingConfig
 }
 
 type AppConfig struct {
@@ -26,6 +27,10 @@ type DatabaseConfig struct {
 type LogConfig struct {
 	Level            string
 	AccessLogEnabled bool
+}
+
+type TracingConfig struct {
+	ConsoleExportEnabled bool
 }
 
 func Load() (*Config, error) {
@@ -43,6 +48,9 @@ func Load() (*Config, error) {
 		Log: LogConfig{
 			Level:            getEnv("LOG_LEVEL", "info"),
 			AccessLogEnabled: getEnvBool("ACCESS_LOG_ENABLED", false),
+		},
+		Tracing: TracingConfig{
+			ConsoleExportEnabled: getEnvBool("TRACE_CONSOLE_EXPORT_ENABLED", false),
 		},
 	}
 

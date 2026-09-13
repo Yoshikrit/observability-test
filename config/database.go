@@ -4,6 +4,7 @@ import (
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	gormlogger "gorm.io/gorm/logger"
+	gormtracing "gorm.io/plugin/opentelemetry/tracing"
 
 	"github.com/Yoshikrit/observability-test/internal/model"
 )
@@ -15,6 +16,13 @@ func InitDatabase(dsn string) (*gorm.DB, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	// Auto-spans every query under the active request span; must run after
+	// tracing.Init(), and includes query values (same trade-off as body logging).
+	if err := db.Use(gormtracing.NewPlugin()); err != nil {
+		return nil, err
+	}
+
 	return db, nil
 }
 

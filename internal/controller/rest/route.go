@@ -3,13 +3,10 @@ package rest
 import (
 	"github.com/gofiber/fiber/v3"
 
-	"github.com/Yoshikrit/observability-test/internal/controller/rest/health"
 	"github.com/Yoshikrit/observability-test/internal/controller/rest/task"
 )
 
 func RegisterRoutes(app *fiber.App, taskHandler *task.TaskHandler) {
-	app.Get("/healthz", health.HealthCheck)
-
 	api := app.Group("/api/v1")
 
 	tasks := api.Group("/tasks")

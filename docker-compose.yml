@@ -9,6 +9,7 @@ services:
       DATABASE_URL: ${DATABASE_URL}
       LOG_LEVEL: ${LOG_LEVEL}
       ACCESS_LOG_ENABLED: ${ACCESS_LOG_ENABLED}
+      TRACE_CONSOLE_EXPORT_ENABLED: ${TRACE_CONSOLE_EXPORT_ENABLED}
     depends_on:
       postgres:
         condition: service_healthy

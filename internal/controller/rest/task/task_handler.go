@@ -5,8 +5,8 @@ import (
 	"strconv"
 
 	"github.com/gofiber/fiber/v3"
-	"github.com/rs/zerolog/log"
 
+	"github.com/Yoshikrit/observability-test/internal/pkg/logger"
 	"github.com/Yoshikrit/observability-test/internal/repository"
 	"github.com/Yoshikrit/observability-test/internal/service"
 )
@@ -36,7 +36,8 @@ func (h *TaskHandler) Create(c fiber.Ctx) error {
 		Description: req.Description,
 	})
 	if err != nil {
-		log.Error().Err(err).Str("title", req.Title).Msg("task: failed to create")
+		l := logger.FromContext(c.Context())
+		l.Error().Err(err).Str("title", req.Title).Msg("task: failed to create")
 		return fiber.NewError(fiber.StatusInternalServerError, "failed to create task")
 	}
 
@@ -46,7 +47,8 @@ func (h *TaskHandler) Create(c fiber.Ctx) error {
 func (h *TaskHandler) List(c fiber.Ctx) error {
 	tasks, err := h.service.ListTasks(c.Context())
 	if err != nil {
-		log.Error().Err(err).Msg("task: failed to list")
+		l := logger.FromContext(c.Context())
+		l.Error().Err(err).Msg("task: failed to list")
 		return fiber.NewError(fiber.StatusInternalServerError, "failed to list tasks")
 	}
 	return c.JSON(tasks)
@@ -63,7 +65,8 @@ func (h *TaskHandler) Get(c fiber.Ctx) error {
 		if errors.Is(err, repository.ErrNotFound) {
 			return fiber.NewError(fiber.StatusNotFound, "task not found")
 		}
-		log.Error().Err(err).Uint("id", id).Msg("task: failed to get")
+		l := logger.FromContext(c.Context())
+		l.Error().Err(err).Uint("id", id).Msg("task: failed to get")
 		return fiber.NewError(fiber.StatusInternalServerError, "failed to get task")
 	}
 	return c.JSON(task)
@@ -89,7 +92,8 @@ func (h *TaskHandler) Update(c fiber.Ctx) error {
 		if errors.Is(err, repository.ErrNotFound) {
 			return fiber.NewError(fiber.StatusNotFound, "task not found")
 		}
-		log.Error().Err(err).Uint("id", id).Msg("task: failed to update")
+		l := logger.FromContext(c.Context())
+		l.Error().Err(err).Uint("id", id).Msg("task: failed to update")
 		return fiber.NewError(fiber.StatusInternalServerError, "failed to update task")
 	}
 	return c.JSON(task)
@@ -105,7 +109,8 @@ func (h *TaskHandler) Delete(c fiber.Ctx) error {
 		if errors.Is(err, repository.ErrNotFound) {
 			return fiber.NewError(fiber.StatusNotFound, "task not found")
 		}
-		log.Error().Err(err).Uint("id", id).Msg("task: failed to delete")
+		l := logger.FromContext(c.Context())
+		l.Error().Err(err).Uint("id", id).Msg("task: failed to delete")
 		return fiber.NewError(fiber.StatusInternalServerError, "failed to delete task")
 	}
 	return c.SendStatus(fiber.StatusNoContent)
