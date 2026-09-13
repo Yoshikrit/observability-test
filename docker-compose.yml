@@ -10,6 +10,7 @@ services:
       LOG_LEVEL: ${LOG_LEVEL}
       ACCESS_LOG_ENABLED: ${ACCESS_LOG_ENABLED}
       TRACE_CONSOLE_EXPORT_ENABLED: ${TRACE_CONSOLE_EXPORT_ENABLED}
+      TRACE_OTLP_ENDPOINT: ${TRACE_OTLP_ENDPOINT}
     depends_on:
       postgres:
         condition: service_healthy
@@ -27,3 +28,55 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
+
+  loki:
+    image: grafana/loki:3.5.1
+    ports:
+      - "3100:3100"
+    volumes:
+      - ./deploy/loki/loki-config.yaml:/etc/loki/local-config.yaml:ro
+    command: -config.file=/etc/loki/local-config.yaml
+
+  alloy:
+    image: grafana/alloy:v1.8.3
+    ports:
+      - "12345:12345"
+    volumes:
+      - ./deploy/alloy/config.alloy:/etc/alloy/config.alloy:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    command: run --server.http.listen-addr=0.0.0.0:12345 /etc/alloy/config.alloy
+    depends_on:
+      - loki
+      - tempo
+      - mimir
+      - api
+
+  tempo:
+    image: grafana/tempo:2.7.2
+    ports:
+      - "3200:3200"
+    volumes:
+      - ./deploy/tempo/tempo.yaml:/etc/tempo.yaml:ro
+    command: -config.file=/etc/tempo.yaml
+
+  mimir:
+    image: grafana/mimir:2.14.0
+    ports:
+      - "9009:9009"
+    volumes:
+      - ./deploy/mimir/mimir.yaml:/etc/mimir.yaml:ro
+    command: -config.file=/etc/mimir.yaml
+
+  grafana:
+    image: grafana/grafana:12.0.2
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./deploy/grafana/provisioning:/etc/grafana/provisioning:ro
+    environment:
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Admin
+    depends_on:
+      - loki
+      - tempo
+      - mimir

@@ -37,7 +37,7 @@ func main() {
 	logger.Init(cfg.Log.Level) // reconfigure with the actual configured level
 	logger.InitAccess(cfg.Log.AccessLogEnabled)
 
-	if err := tracing.Init(serviceName, cfg.App.Env, cfg.Tracing.ConsoleExportEnabled); err != nil {
+	if err := tracing.Init(serviceName, cfg.App.Env, cfg.Tracing.OTLPEndpoint, cfg.Tracing.ConsoleExportEnabled); err != nil {
 		logger.AppLogger.Fatal().Err(err).Msg("observability-api: failed to init tracing")
 	}
 

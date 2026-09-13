@@ -1,0 +1,100 @@
+// === Logs ===
+// Discover containers, tail stdout, ship to Loki.
+
+discovery.docker "containers" {
+	host = "unix:///var/run/docker.sock"
+}
+
+// Strips the leading "/" Docker puts on container names.
+discovery.relabel "containers" {
+	targets = discovery.docker.containers.targets
+
+	rule {
+		source_labels = ["__meta_docker_container_name"]
+		regex         = "/(.*)"
+		target_label  = "container"
+	}
+}
+
+loki.source.docker "default" {
+	host       = "unix:///var/run/docker.sock"
+	targets    = discovery.relabel.containers.output
+	forward_to = [loki.process.add_labels.receiver]
+}
+
+// Non-JSON lines (plain-text app logs) just skip extraction below, no error.
+loki.process "add_labels" {
+	forward_to = [loki.write.default.receiver]
+
+	stage.json {
+		expressions = {
+			log_type   = "log_type",
+			request_id = "request_id",
+			trace_id   = "trace_id",
+		}
+	}
+
+	// log_type: 2 possible values -> safe as a real (indexed) label.
+	stage.labels {
+		values = {
+			log_type = "log_type",
+		}
+	}
+
+	// request_id/trace_id: unique per request -> metadata, not a label
+	// (would be a cardinality explosion), still filterable per line.
+	stage.structured_metadata {
+		values = {
+			request_id = "request_id",
+			trace_id   = "trace_id",
+		}
+	}
+}
+
+loki.write "default" {
+	endpoint {
+		url = "http://loki:3100/loki/api/v1/push"
+	}
+}
+
+// === Traces ===
+// Receive OTLP from the app, forward to Tempo.
+
+otelcol.receiver.otlp "default" {
+	grpc {
+		endpoint = "0.0.0.0:4317"
+	}
+
+	output {
+		traces = [otelcol.exporter.otlp.tempo.input]
+	}
+}
+
+otelcol.exporter.otlp "tempo" {
+	client {
+		endpoint = "tempo:4317"
+
+		tls {
+			insecure = true
+		}
+	}
+}
+
+// === Metrics ===
+// Scrape the app's /metrics endpoint, forward to Mimir.
+
+prometheus.scrape "api" {
+	targets = [
+		{"__address__" = "api:8080"},
+	]
+	metrics_path    = "/metrics"
+	scrape_interval = "5s"
+	scrape_timeout  = "4s"
+	forward_to      = [prometheus.remote_write.mimir.receiver]
+}
+
+prometheus.remote_write "mimir" {
+	endpoint {
+		url = "http://mimir:9009/api/v1/push"
+	}
+}

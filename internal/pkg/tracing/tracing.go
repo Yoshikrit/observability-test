@@ -5,6 +5,7 @@ import (
 
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
 	"go.opentelemetry.io/otel/exporters/stdout/stdouttrace"
 	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/sdk/resource"
@@ -14,7 +15,9 @@ import (
 
 var tracerProvider *sdktrace.TracerProvider
 
-func Init(serviceName, env string, consoleExport bool) error {
+// otlpEndpoint: if empty, no OTLP exporter is added (e.g. running without
+// the Alloy stack up) - the app still works, spans are just discarded.
+func Init(serviceName, env, otlpEndpoint string, consoleExport bool) error {
 	// set resource
 	res, err := resource.Merge(
 		resource.Default(),
@@ -31,7 +34,20 @@ func Init(serviceName, env string, consoleExport bool) error {
 		sdktrace.WithResource(res),
 	}
 
-	// write tracing on terminal
+	// real backend: push spans to Alloy, batched (not per-span, unlike the
+	// console exporter below - this one is a real network call).
+	if otlpEndpoint != "" {
+		otlpExporter, err := otlptracegrpc.New(context.Background(),
+			otlptracegrpc.WithEndpoint(otlpEndpoint),
+			otlptracegrpc.WithInsecure(),
+		)
+		if err != nil {
+			return err
+		}
+		opts = append(opts, sdktrace.WithBatcher(otlpExporter))
+	}
+
+	// local debugging only: print spans to stdout too, if enabled.
 	if consoleExport {
 		exporter, err := stdouttrace.New(stdouttrace.WithPrettyPrint())
 		if err != nil {

@@ -30,6 +30,7 @@ type LogConfig struct {
 }
 
 type TracingConfig struct {
+	OTLPEndpoint         string
 	ConsoleExportEnabled bool
 }
 
@@ -50,6 +51,7 @@ func Load() (*Config, error) {
 			AccessLogEnabled: getEnvBool("ACCESS_LOG_ENABLED", false),
 		},
 		Tracing: TracingConfig{
+			OTLPEndpoint:         getEnv("TRACE_OTLP_ENDPOINT", ""),
 			ConsoleExportEnabled: getEnvBool("TRACE_CONSOLE_EXPORT_ENABLED", false),
 		},
 	}
