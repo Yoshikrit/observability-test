@@ -36,7 +36,7 @@ func Tracing(serviceName string) fiber.Handler {
 
 	return func(c fiber.Ctx) error {
 		path := c.Path()
-		if path == healthcheck.LivenessEndpoint || path == healthcheck.ReadinessEndpoint {
+		if path == healthcheck.LivenessEndpoint || path == healthcheck.ReadinessEndpoint || path == "/metrics" {
 			return c.Next()
 		}
 

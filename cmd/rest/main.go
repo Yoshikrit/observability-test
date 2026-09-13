@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v3"
+	"github.com/gofiber/fiber/v3/middleware/adaptor"
 	"github.com/gofiber/fiber/v3/middleware/healthcheck"
 	"github.com/gofiber/fiber/v3/middleware/recover"
 	"github.com/gofiber/fiber/v3/middleware/requestid"
@@ -16,6 +17,7 @@ import (
 	"github.com/Yoshikrit/observability-test/internal/controller/rest/task"
 	"github.com/Yoshikrit/observability-test/internal/middleware"
 	"github.com/Yoshikrit/observability-test/internal/pkg/logger"
+	"github.com/Yoshikrit/observability-test/internal/pkg/metrics"
 	"github.com/Yoshikrit/observability-test/internal/pkg/tracing"
 	"github.com/Yoshikrit/observability-test/internal/pkg/validate"
 	"github.com/Yoshikrit/observability-test/internal/repository"
@@ -39,6 +41,10 @@ func main() {
 		logger.AppLogger.Fatal().Err(err).Msg("observability-api: failed to init tracing")
 	}
 
+	if err := metrics.Init(serviceName, cfg.App.Env); err != nil {
+		logger.AppLogger.Fatal().Err(err).Msg("observability-api: failed to init metrics")
+	}
+
 	db, err := config.InitDatabase(cfg.Database.DatabaseUrl)
 	if err != nil {
 		logger.AppLogger.Fatal().Err(err).Msg("observability-api: failed to connect database")
@@ -60,8 +66,12 @@ func main() {
 	app.Use(recover.New())
 	app.Use(requestid.New())
 	app.Use(middleware.Tracing(serviceName))
+	app.Use(middleware.Metrics(serviceName))
 	app.Use(middleware.AppLogger())
 	app.Use(middleware.AccessLogger())
+
+	// Prometheus scrape endpoint - the permanent shape Alloy will read from later.
+	app.Get("/metrics", adaptor.HTTPHandler(metrics.Handler))
 
 	// Liveness: is the process itself alive? No external dependency checks
 	app.Get(healthcheck.LivenessEndpoint, healthcheck.New())
@@ -100,5 +110,8 @@ func main() {
 	}
 	if err := tracing.Shutdown(shutdownCtx); err != nil {
 		logger.AppLogger.Error().Err(err).Msg("observability-api: failed to shut down tracing")
+	}
+	if err := metrics.Shutdown(shutdownCtx); err != nil {
+		logger.AppLogger.Error().Err(err).Msg("observability-api: failed to shut down metrics")
 	}
 }

@@ -25,16 +25,10 @@ func AppLogger() fiber.Handler {
 	}
 }
 
-// isHealthCheckPath excludes high-frequency orchestrator probes from the
-// access log - they'd otherwise fire every few seconds and drown out real
-// traffic without adding any diagnostic value.
-func isHealthCheckPath(path string) bool {
-	return path == healthcheck.LivenessEndpoint || path == healthcheck.ReadinessEndpoint
-}
-
 func AccessLogger() fiber.Handler {
 	return func(c fiber.Ctx) error {
-		if isHealthCheckPath(c.Path()) {
+		path := c.Path()
+		if path == healthcheck.LivenessEndpoint || path == healthcheck.ReadinessEndpoint || path == "/metrics" {
 			return c.Next()
 		}
 

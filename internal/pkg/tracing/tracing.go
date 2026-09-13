@@ -40,9 +40,10 @@ func Init(serviceName, env string, consoleExport bool) error {
 		opts = append(opts, sdktrace.WithSyncer(exporter))
 	}
 
-	// set tracer and define global
+	// create sdk for tracing from option
 	tracerProvider = sdktrace.NewTracerProvider(opts...)
 
+	// plug with global provider with these sdk setting
 	otel.SetTracerProvider(tracerProvider)
 	otel.SetTextMapPropagator(propagation.NewCompositeTextMapPropagator(
 		propagation.TraceContext{},
