@@ -1,0 +1,59 @@
+apiVersion: 1
+
+groups:
+  - orgId: 1
+    name: api-alerts
+    folder: API Alerts
+    # short interval so a brief error spike (e.g. `make traffic-error`) isn't
+    # missed between evaluations - fine for a local demo, too chatty for prod.
+    interval: 10s
+    rules:
+      - uid: high-error-rate
+        title: High Error Rate
+        # A: same error-rate query as the dashboard panel, but a 1m window
+        # instead of 5m - reacts fast enough to see a short forced spike.
+        # B: fires when that value is above 5%.
+        condition: B
+        data:
+          - refId: A
+            datasourceUid: mimir
+            relativeTimeRange:
+              from: 60
+              to: 0
+            model:
+              refId: A
+              instant: true
+              expr: >-
+                100 * sum(rate(http_requests_total{status_code=~"5.."}[1m]))
+                / sum(rate(http_requests_total[1m]))
+          - refId: B
+            datasourceUid: "__expr__"
+            relativeTimeRange:
+              from: 60
+              to: 0
+            model:
+              refId: B
+              type: classic_conditions
+              datasource:
+                type: __expr__
+                uid: "__expr__"
+              conditions:
+                - type: query
+                  query:
+                    params: ["A"]
+                  reducer:
+                    type: last
+                  evaluator:
+                    type: gt
+                    params: [5]
+                  operator:
+                    type: and
+        # fire on the first evaluation that crosses the threshold, don't wait.
+        for: 0s
+        # no traffic at all just means "no error", not an incident.
+        noDataState: OK
+        execErrState: Error
+        labels:
+          severity: critical
+        annotations:
+          summary: "Error rate is above 5%"

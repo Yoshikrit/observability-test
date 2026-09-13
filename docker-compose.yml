@@ -16,7 +16,7 @@ services:
         condition: service_healthy
 
   postgres:
-    image: postgres:18-alpine
+    image: dhi.io/postgres:18-alpine
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
@@ -30,7 +30,7 @@ services:
       retries: 10
 
   loki:
-    image: grafana/loki:3.5.1
+    image: dhi.io/loki:3
     ports:
       - "3100:3100"
     volumes:
@@ -38,13 +38,18 @@ services:
     command: -config.file=/etc/loki/local-config.yaml
 
   alloy:
-    image: grafana/alloy:v1.8.3
+    image: dhi.io/alloy:1
     ports:
       - "12345:12345"
     volumes:
       - ./deploy/alloy/config.alloy:/etc/alloy/config.alloy:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
-    command: run --server.http.listen-addr=0.0.0.0:12345 /etc/alloy/config.alloy
+    # non-root by default (uid 473) - needs root's group to read the
+    # docker socket, and an explicit writable storage path (no shell to
+    # mkdir a relative default dir like the old image tolerated).
+    group_add:
+      - "0"
+    command: run --server.http.listen-addr=0.0.0.0:12345 --storage.path=/var/lib/alloy/data /etc/alloy/config.alloy
     depends_on:
       - loki
       - tempo
@@ -52,7 +57,7 @@ services:
       - api
 
   tempo:
-    image: grafana/tempo:2.7.2
+    image: dhi.io/tempo:3
     ports:
       - "3200:3200"
     volumes:
@@ -60,7 +65,7 @@ services:
     command: -config.file=/etc/tempo.yaml
 
   mimir:
-    image: grafana/mimir:2.14.0
+    image: dhi.io/mimir:3
     ports:
       - "9009:9009"
     volumes:
@@ -68,7 +73,7 @@ services:
     command: -config.file=/etc/mimir.yaml
 
   grafana:
-    image: grafana/grafana:12.0.2
+    image: dhi.io/grafana:13
     ports:
       - "3000:3000"
     volumes:

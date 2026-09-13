@@ -19,7 +19,11 @@ datasources:
       # name Alloy attaches in the logs pipeline.
       tracesToLogsV2:
         datasourceUid: loki
-        filterByTraceID: true
+        filterByTraceID: false
+        spanStartTimeShift: "-1m"
+        spanEndTimeShift: "1m"
+        customQuery: true
+        query: '{log_type="access"} | trace_id=`$${__span.traceId}`'
 
   - name: Mimir
     type: prometheus
