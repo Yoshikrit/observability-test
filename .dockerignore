@@ -1,0 +1,43 @@
+# Git
+.git/
+.gitignore
+
+# Env (never bake secrets into image)
+.env
+.env.*
+
+# Binaries
+bin/
+api
+event
+
+# Dev / CI
+Makefile
+docker-compose*.yml
+*.md
+*.log
+tmp/
+coverage.out
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Test files
+*_test.go
+testdata/
+**/mocks/
+
+# Kubernetes (not needed in image)
+k8s/
+
+# Proto source and buf tooling (generated pb.go is already compiled in)
+**/*.proto
+**/buf.yaml
+**/buf.gen.yaml
+**/buf.lock
