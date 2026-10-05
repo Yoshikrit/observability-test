@@ -70,7 +70,7 @@ jobs:
 
       - name: gitleaks (secret scanning)
         run: |
-          go install github.com/gitleaks/gitleaks/v8@latest
+          go install github.com/zricethezav/gitleaks/v8@latest
           gitleaks detect --source . --no-git --redact -v
 
   # Quality gate + PR decoration, distinct from the raw tool output above -
